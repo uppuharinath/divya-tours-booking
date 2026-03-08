@@ -240,14 +240,16 @@ function App() {
         seedDefaultVehicles();
       } else {
         setVehicles(vehiclesData);
-        if (!selectedVehicle) setSelectedVehicle(vehiclesData[0]);
+        // Only set selected vehicle if none is selected yet
+        setSelectedVehicle(prev => (prev ? prev : vehiclesData[0]));
       }
       setLoadingVehicles(false);
     }, (error) => {
       console.error('Firestore error:', error);
       setVehiclesError('Failed to load vehicle rates. Using defaults.');
       setVehicles(defaultVehicles);
-      setSelectedVehicle(defaultVehicles[0]);
+      // Only set default vehicle if none is selected yet
+      setSelectedVehicle(prev => (prev ? prev : defaultVehicles[0]));
       setLoadingVehicles(false);
     });
 
