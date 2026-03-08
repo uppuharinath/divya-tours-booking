@@ -558,7 +558,7 @@ function App() {
     <div className="App">
       {/* Navigation */}
       <nav style={navStyle}>
-        <div style={{ fontSize: '1.8rem', fontWeight: 'bold', letterSpacing: '1px' }}>🚗 DIVYA TOURS</div>
+        <div className="red" style={{ letterSpacing: '1px' }}>🚗 DIVYA TOURS</div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button onClick={() => setActiveTab('home')} style={{ ...tabStyle, borderBottom: activeTab === 'home' ? '3px solid white' : 'none' }}>Home</button>
           <button onClick={() => setActiveTab('mybookings')} style={{ ...tabStyle, borderBottom: activeTab === 'mybookings' ? '3px solid white' : 'none' }}>My Bookings</button>
