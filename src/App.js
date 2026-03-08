@@ -8,6 +8,7 @@ const cityList = [
    { "name": "Mumbai", "state": "Maharashtra" },
   { "name": "Delhi", "state": "Delhi" },
   { "name": "Bangalore", "state": "Karnataka" },
+  { "name": "Bengalure", "state": "Karnataka" },
   { "name": "Chennai", "state": "Tamil Nadu" },
   { "name": "Pune", "state": "Maharashtra" },
   { "name": "Goa", "state": "Goa" },
