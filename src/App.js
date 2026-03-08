@@ -597,7 +597,7 @@ function App() {
 
               {/* Trip Type */}
               <div>
-                <label style={labelStyle}>Trip Type</label>
+                <label style={labelStyle}>Trip Type...</label>
                 <select value={tripType} onChange={(e) => setTripType(e.target.value)} style={{ ...inputStyle, cursor: 'pointer', backgroundColor: 'white' }}>
                   <option value="oneway">One Way</option>
                   <option value="roundtrip">Round Trip</option>
