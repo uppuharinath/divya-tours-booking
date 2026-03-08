@@ -370,27 +370,7 @@ function App() {
     setToCoords(tempCoords);
   };
 
-  // QR Scanner
-  const startScanner = () => {
-    setShowScanner(true);
-    const html5QrCode = new Html5Qrcode("qr-reader");
-    html5QrCode.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: 250 },
-      (decodedText) => {
-        try {
-          const data = JSON.parse(decodedText);
-          if (data.from) setFrom(data.from);
-          if (data.to) setTo(data.to);
-          if (data.date) setJourneyDate(data.date);
-        } catch (e) {
-          alert('Invalid QR data');
-        }
-        html5QrCode.stop().then(() => setShowScanner(false));
-      },
-      (error) => console.warn(error)
-    ).catch(err => console.error(err));
-  };
+
 
   // Payment
   const handlePayment = () => {
@@ -593,10 +573,7 @@ function App() {
             <p style={{ color: '#666', fontSize: '1.2rem' }}>Your Journey, Our Priority – Safe, Reliable, Comfortable</p>
           </div>
 
-          {/* QR Button */}
-          <button onClick={startScanner} style={{ ...buttonStyle, background: '#667eea', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto', marginRight: 'auto' }}>
-            <span>📷</span> Scan QR Code to Auto-Fill
-          </button>
+     
 
           {/* QR Scanner Modal */}
           {showScanner && (
@@ -615,7 +592,7 @@ function App() {
           {/* Form + Map Grid */}
           <div className='container row jcsa'>
             {/* Left Column - Form */}
-            <div className="col-11-xsm col-11-sm col-5-md col-5-ld col-5-xld ">
+            <div className="col-11-xsm b1 col-11-sm col-5-md col-5-ld col-5-xld ">
 
               {/* Trip Type */}
               <div>
@@ -883,7 +860,7 @@ function App() {
                   <span style={{ color: '#28a745', fontWeight: 'bold', fontSize: '1.2rem' }}>₹{b.fare.finalTotal}</span>
                 </div>
                 <div >
-                  <div className='mt-1r'><span style={bookingLabelStyle}>Route</span><p style={bookingValueStyle}>{b.from} → {b.to}</p></div>
+                  <div className='mt-1r'><span style={bookingLabelStyle}>Route.</span><p style={bookingValueStyle}>{b.from} → {b.to}</p></div>
                   <div className='mt-1r'><span style={bookingLabelStyle}>Journey Date</span>
                   <p style={bookingValueStyle}>{new Date(b.journeyDate).toLocaleDateString()}</p></div>
                   <div className='mt-1r'><span style={bookingLabelStyle}>Vehicle</span><p style={bookingValueStyle}>{b.vehicle.name}</p></div>
