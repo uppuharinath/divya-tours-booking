@@ -297,24 +297,17 @@ function App() {
           )}
 
           {/* Form + Map side by side */}
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: '1fr 1fr', 
-            gap: '2rem',
-            background: '#f8f9fa',
-            padding: '2rem',
-            borderRadius: '16px',
-            boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
-          }}>
+          <div className='row flex jcsa b11'>
             {/* Left Column: Form */}
-            <div className="flex-column gap-4">
+            <div className="flex-column gap-4 col-12-xsm m-0 col-12-sm col-6-md col-6-ld col-6-xld ">
               {/* Trip Type */}
-              <div className="flex items-center gap-3">
-                <label style={{ fontWeight: 'bold', color: '#555', minWidth: '80px' }}>Trip Type:</label>
+              <div className="flex jcsa flex-column">
+                  <label style={labelStyle}>Trip Type</label>
                 <select 
                   value={tripType} 
                   onChange={(e) => setTripType(e.target.value)} 
-                  style={selectStyle}
+                 
+                  className='w-50 m-auto'
                 >
                   <option value="oneway">One Way</option>
                   <option value="roundtrip">Round Trip</option>
@@ -322,14 +315,15 @@ function App() {
               </div>
 
               {/* Dates */}
-              <div className="flex gap-4">
+              <div className="flex mt-1r gap-4">
                 <div className="flex-column" style={{ flex: 1 }}>
                   <label style={labelStyle}>Journey Date</label>
                   <input 
                     type="date" 
                     value={journeyDate} 
                     onChange={(e) => setJourneyDate(e.target.value)} 
-                    style={inputStyle}
+                  
+                    className='fit-content b11 mb-1r'
                   />
                 </div>
                 {tripType === 'roundtrip' && (
@@ -354,7 +348,8 @@ function App() {
                     value={from} 
                     onChange={handleFromChange} 
                     placeholder="Enter pickup city" 
-                    style={inputStyle}
+                   
+                    className='w-80 b1'
                   />
                   {fromSuggestions.length > 0 && (
                     <ul style={suggestionListStyle}>
@@ -377,7 +372,8 @@ function App() {
                     value={to} 
                     onChange={handleToChange} 
                     placeholder="Enter destination city" 
-                    style={inputStyle}
+                                        className='w-80 b1'
+
                   />
                   {toSuggestions.length > 0 && (
                     <ul style={suggestionListStyle}>
@@ -396,7 +392,7 @@ function App() {
               </div>
 
               {/* Vehicle Selection */}
-              <div className="flex-column">
+              <div className="mt-1r p-1r mb-1r  b2 plpr-1r ptpb-1r bg-blue flex-column">
                 <label style={labelStyle}>Select Vehicle</label>
                 <div style={{ 
                   display: 'grid', 
@@ -459,7 +455,7 @@ function App() {
               </div>
 
               {/* Promo Code */}
-              <div className="flex gap-2">
+              <div className="flex gap-2 mt-1r mb-1r">
                 <input 
                   type="text" 
                   placeholder="Enter promo code" 
@@ -526,10 +522,58 @@ function App() {
               >
                 Proceed to Pay ₹{fare.total - (fare.total * discount / 100)}
               </button>
+
+                {/* Payment Modal */}
+          {showPayment && (
+            <div className="w-100 flex jcc aic" style={{ background: 'rgba(0,0,0,0.5)', zIndex: 1000 }}>
+              <div  className="w-100 fit-content m-auto" style={{
+                background: 'white',
+                padding: '2rem',
+                borderRadius: '16px',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+              }}>
+                <h3 style={{ marginBottom: '1.5rem', color: '#333' }}>Confirm Payment</h3>
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <div style={fareRowStyle}>
+                    <span>Base Fare:</span>
+                    <span>₹{fare.baseFare}</span>
+                  </div>
+                  <div style={fareRowStyle}>
+                    <span>Taxes:</span>
+                    <span>₹{fare.taxes}</span>
+                  </div>
+                  {discount > 0 && (
+                    <div style={{ ...fareRowStyle, color: '#28a745' }}>
+                      <span>Discount:</span>
+                      <span>-₹{(fare.total * discount / 100).toFixed(0)}</span>
+                    </div>
+                  )}
+                  <div style={{ ...fareRowStyle, fontSize: '1.3rem', fontWeight: 'bold', marginTop: '1rem', borderTop: '2px solid #ddd', paddingTop: '1rem' }}>
+                    <span>Total:</span>
+                    <span>₹{fare.total - (fare.total * discount / 100)}</span>
+                  </div>
+                </div>
+                <div className="flex gap2" style={{ justifyContent: 'space-between' }}>
+                  <button 
+                    onClick={handlePayment} 
+                    style={{ ...buttonStyle, background: '#28a745', flex: 1 }}
+                  >
+                    Pay Now
+                  </button>
+                  <button 
+                    onClick={() => setShowPayment(false)} 
+                    style={{ ...buttonStyle, background: '#dc3545', flex: 1 }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
             </div>
 
             {/* Right Column: Map */}
-            <div className="flex-column b1">
+            <div className=" col-12-xsm m-0 col-12-sm col-5-md col-5-ld col-5-xld">
               <h3 style={{ color: '#333', marginBottom: '1rem' }}>Route Map</h3>
               {!isLoaded ? (
                 <div style={mapPlaceholderStyle}>Loading map...</div>
@@ -577,53 +621,7 @@ function App() {
             </div>
           </div>
 
-          {/* Payment Modal */}
-          {showPayment && (
-            <div className="w-100 flex jcc aic" style={{ background: 'rgba(0,0,0,0.5)', zIndex: 1000 }}>
-              <div  className="w-100 fit-content m-auto" style={{
-                background: 'white',
-                padding: '2rem',
-                borderRadius: '16px',
-                boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
-              }}>
-                <h3 style={{ marginBottom: '1.5rem', color: '#333' }}>Confirm Payment</h3>
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <div style={fareRowStyle}>
-                    <span>Base Fare:</span>
-                    <span>₹{fare.baseFare}</span>
-                  </div>
-                  <div style={fareRowStyle}>
-                    <span>Taxes:</span>
-                    <span>₹{fare.taxes}</span>
-                  </div>
-                  {discount > 0 && (
-                    <div style={{ ...fareRowStyle, color: '#28a745' }}>
-                      <span>Discount:</span>
-                      <span>-₹{(fare.total * discount / 100).toFixed(0)}</span>
-                    </div>
-                  )}
-                  <div style={{ ...fareRowStyle, fontSize: '1.3rem', fontWeight: 'bold', marginTop: '1rem', borderTop: '2px solid #ddd', paddingTop: '1rem' }}>
-                    <span>Total:</span>
-                    <span>₹{fare.total - (fare.total * discount / 100)}</span>
-                  </div>
-                </div>
-                <div className="flex gap2" style={{ justifyContent: 'space-between' }}>
-                  <button 
-                    onClick={handlePayment} 
-                    style={{ ...buttonStyle, background: '#28a745', flex: 1 }}
-                  >
-                    Pay Now
-                  </button>
-                  <button 
-                    onClick={() => setShowPayment(false)} 
-                    style={{ ...buttonStyle, background: '#dc3545', flex: 1 }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+        
         </div>
       )}
 
@@ -658,7 +656,7 @@ function App() {
                     </div>
                     <div>
                       <span style={bookingLabelStyle}>Journey Date</span>
-                      <p style={bookingValueStyle}>{new Date(b.journeyDate).toLocaleDateString()}</p>
+                      <p className="w-50" style={bookingValueStyle}>{new Date(b.journeyDate).toLocaleDateString()}</p>
                     </div>
                     <div>
                       <span style={bookingLabelStyle}>Vehicle</span>
