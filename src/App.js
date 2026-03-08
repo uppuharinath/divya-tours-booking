@@ -875,15 +875,17 @@ function App() {
 
       {/* ADMIN TAB */}
       {activeTab === 'admin' && (
-        <div style={{ maxWidth: '1200px', margin: '2rem auto', padding: '1rem' }}>
+        <div>
           <h1 style={{ fontSize: '2.2rem', color: '#333', marginBottom: '2rem', fontWeight: 700 }}>Admin Dashboard</h1>
-          <div style={{ background: 'white', borderRadius: '20px', padding: '2rem', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', width: '100%', overflowX: 'auto' }}>
-            <h3 style={{ marginBottom: '1.5rem', color: '#333', fontSize: '1.3rem' }}>All Bookings Overview</h3>
+          <div className=" w-100 bl-red">
+            <h3 className=' black b1'>All Bookings Overview</h3>
             <table style={tableStyle}>
               <thead>
                 <tr style={tableHeaderStyle}>
-                  <th style={tableCellStyle}>Booking ID</th><th style={tableCellStyle}>Customer</th><th style={tableCellStyle}>Route</th>
-                  <th style={tableCellStyle}>Date</th><th style={tableCellStyle}>Vehicle</th><th style={tableCellStyle}>Amount</th><th style={tableCellStyle}>Status</th>
+                  <th >Booking ID</th>
+                  <th >Customer</th>
+                  <th >Route</th>
+                  <th >Status</th>
                 </tr>
               </thead>
               <tbody>
