@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-// import { Html5Qrcode } from 'html5-qrcode';
 import { useJsApiLoader, GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api';
+import { db, auth } from './firebase';
+import { collection, onSnapshot, doc, updateDoc, query, orderBy, setDoc } from 'firebase/firestore';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import './App.css';
 
 // ---------- CONSTANTS WITH STATE NAMES ----------
 const cityList = [
-   { "name": "Mumbai", "state": "Maharashtra" },
+  // ... (your full city list, unchanged) ...
+  { "name": "Mumbai", "state": "Maharashtra" },
   { "name": "Delhi", "state": "Delhi" },
   { "name": "Bangalore", "state": "Karnataka" },
   { "name": "Bengalure", "state": "Karnataka" },
@@ -106,7 +109,7 @@ const cityList = [
   { name: 'Rishikesh', state: 'Uttarakhand' },
   { name: 'Haridwar', state: 'Uttarakhand' },
   { name: 'Varanasi', state: 'Uttar Pradesh' },
-    { name: 'Tirupati', state: 'Andhra Pradesh' },
+  { name: 'Tirupati', state: 'Andhra Pradesh' },
   { name: 'Tirumala', state: 'Andhra Pradesh' },
   { name: 'Alipiri', state: 'Andhra Pradesh' },
   { name: 'Tiruchanur', state: 'Andhra Pradesh' },
@@ -118,7 +121,7 @@ const cityList = [
   { name: 'Nagalapuram', state: 'Andhra Pradesh' },
   { name: 'Kanipakam', state: 'Andhra Pradesh' },
   { name: 'Appalayagunta', state: 'Andhra Pradesh' },
-   { name: 'Alleppey', state: 'Kerala' },
+  { name: 'Alleppey', state: 'Kerala' },
   { name: 'Kumarakom', state: 'Kerala' },
   { name: 'Munnar', state: 'Kerala' },
   { name: 'Thekkady', state: 'Kerala' },
@@ -128,7 +131,7 @@ const cityList = [
   { name: 'Bekal', state: 'Kerala' },
   { name: 'Kozhikode', state: 'Kerala' },
   { name: 'Thrissur', state: 'Kerala' },
-   { name: 'Marina Beach', state: 'Tamil Nadu' },
+  { name: 'Marina Beach', state: 'Tamil Nadu' },
   { name: 'Elliots Beach', state: 'Tamil Nadu' },
   { name: 'Mahabalipuram', state: 'Tamil Nadu' },
   { name: 'Kanchipuram', state: 'Tamil Nadu' },
@@ -137,7 +140,7 @@ const cityList = [
   { name: 'Kolli Hills', state: 'Tamil Nadu' },
   { name: 'Yercaud', state: 'Tamil Nadu' },
   { name: 'Pulicat (TN side)', state: 'Tamil Nadu' },
-   { name: 'Nandi Hills', state: 'Karnataka' },
+  { name: 'Nandi Hills', state: 'Karnataka' },
   { name: 'Skandagiri', state: 'Karnataka' },
   { name: 'Bannerghatta', state: 'Karnataka' },
   { name: 'Wonderla Bangalore', state: 'Karnataka' },
@@ -149,7 +152,8 @@ const cityList = [
   { name: 'Melukote', state: 'Karnataka' }
 ];
 
-const vehicles = [
+// Default vehicles (used as fallback or to seed Firestore)
+const defaultVehicles = [
   { id: 'innova', name: 'Innova Crysta', rate: 20, capacity: 7 },
   { id: 'suzuki', name: 'Suzuki Ertiga', rate: 17, capacity: 7 },
   { id: 'etios', name: 'Toyota Etios', rate: 15, capacity: 4 },
@@ -165,11 +169,25 @@ function App() {
   // Google Maps API loader
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: 'AIzaSyC52EEfOR7rZ43qfdpAiXA0I1W0Ohx-sPA'
+    googleMapsApiKey: 'AIzaSyC52EEfOR7rZ43qfdpAiXA0I1W0Ohx-sPA' // Replace with your actual key
   });
 
   // Tab navigation
   const [activeTab, setActiveTab] = useState('home');
+
+  // ---------- Firebase States ----------
+  const [vehicles, setVehicles] = useState([]);
+  const [loadingVehicles, setLoadingVehicles] = useState(true);
+  const [vehiclesError, setVehiclesError] = useState('');
+
+  // Admin auth
+  const [user, setUser] = useState(null);
+  const [adminLoginData, setAdminLoginData] = useState({ email: '', password: '' });
+  const [adminLoginError, setAdminLoginError] = useState('');
+
+  // Admin rate editing
+  const [tempVehicleRates, setTempVehicleRates] = useState({});
+  const [adminMessage, setAdminMessage] = useState({ type: '', text: '' });
 
   // Form state
   const [from, setFrom] = useState('');
@@ -177,7 +195,7 @@ function App() {
   const [journeyDate, setJourneyDate] = useState('');
   const [returnDate, setReturnDate] = useState('');
   const [tripType, setTripType] = useState('oneway');
-  const [selectedVehicle, setSelectedVehicle] = useState(vehicles[0]);
+  const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [customer, setCustomer] = useState({ name: '', email: '', phone: '', address: '' });
   const [promoCode, setPromoCode] = useState('');
   const [discount, setDiscount] = useState(0);
@@ -198,7 +216,7 @@ function App() {
   const [fromSuggestions, setFromSuggestions] = useState([]);
   const [toSuggestions, setToSuggestions] = useState([]);
 
-  // Bookings
+  // Bookings (localStorage for now)
   const [bookings, setBookings] = useState([]);
 
   // Refs for debouncing and suggestions
@@ -206,13 +224,68 @@ function App() {
   const fromRef = useRef(null);
   const toRef = useRef(null);
 
-  // Load bookings from localStorage on mount
+  // ---------- Firebase Real-time Listener for Vehicles ----------
+  useEffect(() => {
+    setLoadingVehicles(true);
+    const vehiclesRef = collection(db, 'vehicles');
+    const q = query(vehiclesRef, orderBy('name'));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const vehiclesData = [];
+      snapshot.forEach((doc) => {
+        vehiclesData.push({ id: doc.id, ...doc.data() });
+      });
+      if (vehiclesData.length === 0) {
+        // No vehicles in Firestore, seed with defaults
+        seedDefaultVehicles();
+      } else {
+        setVehicles(vehiclesData);
+        if (!selectedVehicle) setSelectedVehicle(vehiclesData[0]);
+      }
+      setLoadingVehicles(false);
+    }, (error) => {
+      console.error('Firestore error:', error);
+      setVehiclesError('Failed to load vehicle rates. Using defaults.');
+      setVehicles(defaultVehicles);
+      setSelectedVehicle(defaultVehicles[0]);
+      setLoadingVehicles(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Function to seed default vehicles into Firestore
+  const seedDefaultVehicles = async () => {
+    try {
+      const vehiclesRef = collection(db, 'vehicles');
+      for (const v of defaultVehicles) {
+        await setDoc(doc(vehiclesRef, v.id), {
+          name: v.name,
+          rate: v.rate,
+          capacity: v.capacity
+        });
+      }
+      console.log('Default vehicles seeded');
+    } catch (error) {
+      console.error('Error seeding vehicles:', error);
+    }
+  };
+
+  // ---------- Firebase Auth Listener ----------
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setUser(user);
+    });
+    return unsubscribe;
+  }, []);
+
+  // ---------- Load bookings from localStorage ----------
   useEffect(() => {
     const stored = JSON.parse(localStorage.getItem('divyaBookings')) || [];
     setBookings(stored);
   }, []);
 
-  // Recalculate fare when distance, vehicle, or trip type changes
+  // ---------- Fare Calculation ----------
   useEffect(() => {
     if (distance > 0 && selectedVehicle) {
       let base = selectedVehicle.rate * distance;
@@ -223,7 +296,7 @@ function App() {
     }
   }, [distance, selectedVehicle, tripType]);
 
-  // Geocode an address and return coordinates
+  // ---------- Geocoding & Directions ----------
   const geocodeAddress = useCallback((address, type) => {
     if (!window.google || !address) return;
 
@@ -269,7 +342,7 @@ function App() {
     }
   }, [fromCoords, toCoords]);
 
-  // Debounced geocoding when from/to text changes
+  // Debounced geocoding
   useEffect(() => {
     if (geocodeTimeout.current) clearTimeout(geocodeTimeout.current);
     if (from) {
@@ -337,7 +410,6 @@ function App() {
     if (field === 'from') {
       setFrom(city.name);
       setFromSuggestions([]);
-      // Trigger geocoding for the selected city
       setTimeout(() => {
         if (window.google) geocodeAddress(city.name, 'from');
       }, 100);
@@ -360,18 +432,14 @@ function App() {
     else alert('Invalid promo code');
   };
 
-  // Swap From and To
   const swapLocations = () => {
     const temp = from;
     setFrom(to);
     setTo(temp);
-    // Also swap coordinates if available
     const tempCoords = fromCoords;
     setFromCoords(toCoords);
     setToCoords(tempCoords);
   };
-
-
 
   // Payment
   const handlePayment = () => {
@@ -407,6 +475,48 @@ function App() {
     const razorpay = new window.Razorpay(options);
     razorpay.open();
   };
+
+  // ---------- ADMIN HANDLERS ----------
+  const handleAdminLogin = async (e) => {
+    e.preventDefault();
+    setAdminLoginError('');
+    try {
+      await signInWithEmailAndPassword(auth, adminLoginData.email, adminLoginData.password);
+    } catch (error) {
+      setAdminLoginError(error.message);
+    }
+  };
+
+  const handleAdminLogout = async () => {
+    await signOut(auth);
+    setTempVehicleRates({});
+  };
+
+  const handleRateChange = (vehicleId, newRate) => {
+    setTempVehicleRates({
+      ...tempVehicleRates,
+      [vehicleId]: parseFloat(newRate) || 0
+    });
+  };
+
+const saveVehicleRates = async () => {
+  console.log('Current user:', auth.currentUser); // ADD THIS
+  try {
+    const updates = [];
+    for (const [id, rate] of Object.entries(tempVehicleRates)) {
+      const vehicleRef = doc(db, 'vehicles', id);
+      updates.push(updateDoc(vehicleRef, { rate }));
+    }
+    await Promise.all(updates);
+    setTempVehicleRates({});
+    setAdminMessage({ type: 'success', text: 'Rates updated successfully!' });
+    setTimeout(() => setAdminMessage({ type: '', text: '' }), 3000);
+  } catch (error) {
+    console.error('Detailed error:', error); // ALSO ADD THIS
+    setAdminMessage({ type: 'error', text: 'Failed to update rates: ' + error.message });
+  }
+};
+
 
   // ---------- STYLES ----------
   const navStyle = {
@@ -558,7 +668,7 @@ function App() {
     <div className="App">
       {/* Navigation */}
       <nav style={navStyle}>
-        <div className="red" style={{ letterSpacing: '1px' }}>🚗 DIVYA TOURS</div>
+        <div style={{ letterSpacing: '1px' }}>🚗 DIVYA TOURS</div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button onClick={() => setActiveTab('home')} style={{ ...tabStyle, borderBottom: activeTab === 'home' ? '3px solid white' : 'none' }}>Home</button>
           <button onClick={() => setActiveTab('mybookings')} style={{ ...tabStyle, borderBottom: activeTab === 'mybookings' ? '3px solid white' : 'none' }}>My Bookings</button>
@@ -574,9 +684,11 @@ function App() {
             <p style={{ color: '#666', fontSize: '1.2rem' }}>Your Journey, Our Priority – Safe, Reliable, Comfortable</p>
           </div>
 
-     
+          {/* Loading/Error for vehicles */}
+          {loadingVehicles && <div style={{ textAlign: 'center', padding: '1rem' }}>Loading vehicle rates...</div>}
+          {vehiclesError && <div style={{ color: '#dc3545', textAlign: 'center', padding: '1rem' }}>{vehiclesError}</div>}
 
-          {/* QR Scanner Modal */}
+          {/* QR Scanner Modal (unchanged) */}
           {showScanner && (
             <div style={{
               position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -711,7 +823,7 @@ function App() {
                 </div>
               </div>
 
-              {/* Vehicle Selection */}
+              {/* Vehicle Selection - using Firebase vehicles */}
               <div className='mt-1r'>
                 <label style={labelStyle}>Select Vehicle</label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
@@ -721,8 +833,8 @@ function App() {
                       onClick={() => setSelectedVehicle(v)}
                       style={{
                         ...vehicleCardStyle,
-                        border: selectedVehicle.id === v.id ? '3px solid #667eea' : '1px solid #ddd',
-                        background: selectedVehicle.id === v.id ? '#f0f4ff' : 'white'
+                        border: selectedVehicle?.id === v.id ? '3px solid #667eea' : '1px solid #ddd',
+                        background: selectedVehicle?.id === v.id ? '#f0f4ff' : 'white'
                       }}
                     >
                       <strong style={{ fontSize: '1.1rem', color: '#333' }}>{v.name}</strong>
@@ -766,11 +878,10 @@ function App() {
                   <span>₹{fare.taxes}</span>
                 </div>
 
-                 <div style={fareRowStyle}>
+                <div style={fareRowStyle}>
                   <span>Total:</span>
                   <span> ₹{(Number(fare.baseFare || 0) + Number(fare.taxes || 0)).toLocaleString('en-IN')}</span>
                 </div>
-
 
                 {discount > 0 && (
                   <div style={{ ...fareRowStyle, color: '#28a745' }}>
@@ -875,35 +986,184 @@ function App() {
 
       {/* ADMIN TAB */}
       {activeTab === 'admin' && (
-        <div>
-          <h1 style={{ fontSize: '2.2rem', color: '#333', marginBottom: '2rem', fontWeight: 700 }}>Admin Dashboard</h1>
-          <div className=" w-100 bl-red">
-            <h3 className=' black b1'>All Bookings Overview</h3>
-            <table style={tableStyle}>
-              <thead>
-                <tr style={tableHeaderStyle}>
-                  <th >Booking ID</th>
-                  <th >Customer</th>
-                  <th >Route</th>
-                  <th >Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bookings.map(b => (
-                  <tr key={b.id} style={tableRowStyle}>
-                    <td style={tableCellStyle}>{b.id}</td>
-                    <td style={tableCellStyle}><div>{b.customer.name}</div><small style={{ color: '#666' }}>{b.customer.phone}</small></td>
-                    <td style={tableCellStyle}>{b.from} → {b.to}</td>
-                    <td style={tableCellStyle}>{new Date(b.journeyDate).toLocaleDateString()}</td>
-                    <td style={tableCellStyle}>{b.vehicle.name}</td>
-                    <td style={{ ...tableCellStyle, fontWeight: 'bold', color: '#28a745' }}>₹{b.fare.finalTotal}</td>
-                    <td style={tableCellStyle}><span style={{ background: '#e8f5e9', color: '#28a745', padding: '4px 12px', borderRadius: '20px', fontSize: '0.9rem' }}>Confirmed</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {bookings.length === 0 && <p style={{ textAlign: 'center', color: '#666', padding: '2rem' }}>No bookings to display</p>}
-          </div>
+        <div style={{ maxWidth: '1200px', margin: '2rem auto', padding: '1rem' }}>
+          {!user ? (
+            // Admin Login Form
+            <div style={{
+              maxWidth: '400px',
+              margin: '0 auto',
+              padding: '2rem',
+              background: 'white',
+              borderRadius: '16px',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
+            }}>
+              <h2 style={{ textAlign: 'center', color: '#333', marginBottom: '2rem' }}>Admin Login</h2>
+              <form onSubmit={handleAdminLogin}>
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={labelStyle}>Email</label>
+                  <input
+                    type="email"
+                    value={adminLoginData.email}
+                    onChange={(e) => setAdminLoginData({ ...adminLoginData, email: e.target.value })}
+                    style={inputStyle}
+                    required
+                  />
+                </div>
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={labelStyle}>Password</label>
+                  <input
+                    type="password"
+                    value={adminLoginData.password}
+                    onChange={(e) => setAdminLoginData({ ...adminLoginData, password: e.target.value })}
+                    style={inputStyle}
+                    required
+                  />
+                </div>
+                {adminLoginError && (
+                  <div style={{ color: '#dc3545', marginBottom: '1rem', textAlign: 'center' }}>
+                    {adminLoginError}
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  style={{
+                    ...buttonStyle,
+                    background: '#667eea',
+                    width: '100%',
+                    padding: '14px'
+                  }}
+                >
+                  Login
+                </button>
+              </form>
+              <p style={{ textAlign: 'center', marginTop: '1rem', color: '#666', fontSize: '0.9rem' }}>
+                Use Firebase Auth admin credentials
+              </p>
+            </div>
+          ) : (
+            // Admin Dashboard
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                <h1 style={{ fontSize: '2.2rem', color: '#333', fontWeight: 700 }}>Admin Dashboard</h1>
+                <button
+                  onClick={handleAdminLogout}
+                  style={{ ...buttonStyle, background: '#dc3545' }}
+                >
+                  Logout
+                </button>
+              </div>
+
+              {adminMessage.text && (
+                <div style={{
+                  padding: '1rem',
+                  marginBottom: '1rem',
+                  borderRadius: '8px',
+                  backgroundColor: adminMessage.type === 'success' ? '#d4edda' : '#f8d7da',
+                  color: adminMessage.type === 'success' ? '#155724' : '#721c24',
+                  border: `1px solid ${adminMessage.type === 'success' ? '#c3e6cb' : '#f5c6cb'}`
+                }}>
+                  {adminMessage.text}
+                </div>
+              )}
+
+              {/* Live Rate Management */}
+              <div style={{
+                background: 'white',
+                borderRadius: '16px',
+                padding: '2rem',
+                marginBottom: '2rem',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+              }}>
+                <h2 style={{ color: '#333', marginBottom: '1.5rem' }}>Live Rate Management</h2>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: '#f8f9fa', borderBottom: '2px solid #dee2e6' }}>
+                        <th style={{ padding: '12px', textAlign: 'left' }}>Vehicle</th>
+                        <th style={{ padding: '12px', textAlign: 'left' }}>Capacity</th>
+                        <th style={{ padding: '12px', textAlign: 'left' }}>Current Rate (₹/km)</th>
+                        <th style={{ padding: '12px', textAlign: 'left' }}>New Rate (₹/km)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {vehicles.map(vehicle => (
+                        <tr key={vehicle.id} style={{ borderBottom: '1px solid #dee2e6' }}>
+                          <td style={{ padding: '12px', fontWeight: 500 }}>{vehicle.name}</td>
+                          <td style={{ padding: '12px' }}>{vehicle.capacity} seats</td>
+                          <td style={{ padding: '12px', fontWeight: 'bold', color: '#667eea' }}>₹{vehicle.rate}</td>
+                          <td style={{ padding: '12px' }}>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.5"
+                              value={tempVehicleRates[vehicle.id] !== undefined ? tempVehicleRates[vehicle.id] : ''}
+                              onChange={(e) => handleRateChange(vehicle.id, e.target.value)}
+                              placeholder="Enter new rate"
+                              style={{
+                                ...inputStyle,
+                                padding: '8px',
+                                width: '120px'
+                              }}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <button
+                  onClick={saveVehicleRates}
+                  style={{
+                    ...buttonStyle,
+                    background: '#28a745',
+                    marginTop: '1.5rem'
+                  }}
+                  disabled={Object.keys(tempVehicleRates).length === 0}
+                >
+                  Save Rate Changes
+                </button>
+              </div>
+
+              {/* Bookings Overview */}
+              <div style={{
+                background: 'white',
+                borderRadius: '16px',
+                padding: '2rem',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+              }}>
+                <h2 style={{ color: '#333', marginBottom: '1.5rem' }}>All Bookings Overview</h2>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={tableStyle}>
+                    <thead>
+                      <tr style={tableHeaderStyle}>
+                        <th style={tableCellStyle}>Booking ID</th>
+                        <th style={tableCellStyle}>Customer</th>
+                        <th style={tableCellStyle}>Route</th>
+                        <th style={tableCellStyle}>Date</th>
+                        <th style={tableCellStyle}>Vehicle</th>
+                        <th style={tableCellStyle}>Amount</th>
+                        <th style={tableCellStyle}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bookings.map(b => (
+                        <tr key={b.id} style={tableRowStyle}>
+                          <td style={tableCellStyle}>{b.id}</td>
+                          <td style={tableCellStyle}><div>{b.customer.name}</div><small style={{ color: '#666' }}>{b.customer.phone}</small></td>
+                          <td style={tableCellStyle}>{b.from} → {b.to}</td>
+                          <td style={tableCellStyle}>{new Date(b.journeyDate).toLocaleDateString()}</td>
+                          <td style={tableCellStyle}>{b.vehicle.name}</td>
+                          <td style={{ ...tableCellStyle, fontWeight: 'bold', color: '#28a745' }}>₹{b.fare.finalTotal}</td>
+                          <td style={tableCellStyle}><span style={{ background: '#e8f5e9', color: '#28a745', padding: '4px 12px', borderRadius: '20px', fontSize: '0.9rem' }}>Confirmed</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {bookings.length === 0 && <p style={{ textAlign: 'center', color: '#666', padding: '2rem' }}>No bookings to display</p>}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
