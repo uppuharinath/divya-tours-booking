@@ -4,6 +4,9 @@ import { db, auth } from './firebase';
 import { collection, onSnapshot, doc, updateDoc, query, orderBy, setDoc } from 'firebase/firestore';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import './App.css';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import { FaCalendarAlt } from 'react-icons/fa';
 
 // ---------- CONSTANTS WITH STATE NAMES ----------
 const cityList = [
@@ -192,8 +195,8 @@ function App() {
   // Form state
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [journeyDate, setJourneyDate] = useState('');
-  const [returnDate, setReturnDate] = useState('');
+  const [journeyDate, setJourneyDate] = useState(null);
+const [returnDate, setReturnDate] = useState(null);
   const [tripType, setTripType] = useState('oneway');
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [customer, setCustomer] = useState({ name: '', email: '', phone: '', address: '' });
@@ -625,6 +628,7 @@ const saveVehicleRates = async () => {
     color: '#666',
     display: 'block',
     marginBottom: '0.25rem',
+    marginTop: '1.25rem',
     textTransform: 'uppercase',
     letterSpacing: '0.5px'
   };
@@ -719,21 +723,75 @@ const saveVehicleRates = async () => {
               </div>
 
               {/* Dates */}
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={labelStyle}>Journey Date</label>
-                  <input type="date" value={journeyDate} onChange={(e) => setJourneyDate(e.target.value)} style={inputStyle} />
-                </div>
-                {tripType === 'roundtrip' && (
-                  <div style={{ flex: 1 }}>
-                    <label style={labelStyle}>Return Date</label>
-                    <input type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} style={inputStyle} />
-                  </div>
-                )}
-              </div>
+<div className="box2 mt-1r" style={{ display: 'flex', gap: '1rem' }}>
+  <div style={{ flex: 1, position: 'relative' }}>
+    <label style={labelStyle}>Journey Date</label>
+    <div style={{ position: 'relative' }}>
+
+      <DatePicker
+        selected={journeyDate}
+        onChange={(date) => setJourneyDate(date)}
+        dateFormat="dd/MM/yyyy"
+        minDate={new Date()}
+        placeholderText="Select journey date"
+        customInput={
+          <input
+            style={inputStyle}
+            readOnly
+          />
+          
+        }
+        
+        
+      />
+      <FaCalendarAlt
+          style={{
+            position: 'relative',
+            right: '10px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            transform: 'translateX(-90%)',
+            color: '#667eea',
+            pointerEvents: 'none'
+          }}
+        />
+    </div>
+  </div>
+
+  {tripType === 'roundtrip' && (
+    <div  style={{ flex: 1, position: 'relative' }}>
+      <label style={labelStyle}>Return Date</label>
+      <div >
+        <DatePicker
+          selected={returnDate}
+          onChange={(date) => setReturnDate(date)}
+          dateFormat="dd/MM/yyyy"
+          minDate={journeyDate || new Date()}
+          placeholderText="Select return date"
+          customInput={
+            <input
+              style={inputStyle}
+              readOnly
+            />
+          }
+        />
+        <FaCalendarAlt
+          style={{
+            position: 'absolute',
+            right: '10px',
+            top: '50%',
+            transform: 'translateY(-0%)',
+            color: '#667eea',
+            pointerEvents: 'none'
+          }}
+        />
+      </div>
+    </div>
+  )}
+</div>
 
               {/* From / To with Suggestions and Swap Button */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div  className=" box2 mt-1r" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 {/* From Field */}
                 <div style={{ flex: 1, position: 'relative' }} ref={fromRef}>
                   <label style={labelStyle}>From</label>
@@ -826,7 +884,7 @@ const saveVehicleRates = async () => {
               </div>
 
               {/* Vehicle Selection - using Firebase vehicles */}
-              <div className='mt-1r'>
+              <div className='box2 mt-1r'>
                 <label style={labelStyle}>Select Vehicle</label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
                   {vehicles.map(v => (
@@ -848,7 +906,7 @@ const saveVehicleRates = async () => {
               </div>
 
               {/* Customer Details */}
-              <div>
+              <div className='box2 mt-1r'>
                 <label style={labelStyle}>Contact Details</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   <input type="text" name="name" placeholder="Full Name" value={customer.name} onChange={handleCustomerChange} style={inputStyle} />
@@ -961,7 +1019,7 @@ const saveVehicleRates = async () => {
       {/* MY BOOKINGS TAB */}
       {activeTab === 'mybookings' && (
         <div style={{ maxWidth: '900px', margin: '2rem auto', padding: '1rem' }}>
-          <h1 style={{ fontSize: '2.2rem', color: '#333', marginBottom: '2rem', fontWeight: 700 }}>My Bookings</h1>
+          <h1 style={{ fontSize: '2.2rem', color: '#333', marginBottom: '2rem', fontWeight: 700 }}>Bookings</h1>
           {bookings.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '3rem', background: '#f8f9fa', borderRadius: '16px', color: '#666' }}>
               <p style={{ fontSize: '1.2rem' }}>No bookings yet. Start your journey with us!</p>
@@ -1087,7 +1145,7 @@ const saveVehicleRates = async () => {
                         <th style={{ padding: '12px', textAlign: 'left' }}>New Rate (₹/km)</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <thead>
                       {vehicles.map(vehicle => (
                         <tr key={vehicle.id} style={{ borderBottom: '1px solid #dee2e6' }}>
                           <td style={{ padding: '12px', fontWeight: 500 }}>{vehicle.name}</td>
@@ -1110,7 +1168,7 @@ const saveVehicleRates = async () => {
                           </td>
                         </tr>
                       ))}
-                    </tbody>
+                    </thead>
                   </table>
                 </div>
                 <button
@@ -1147,7 +1205,7 @@ const saveVehicleRates = async () => {
                         <th style={tableCellStyle}>Status</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <thead>
                       {bookings.map(b => (
                         <tr key={b.id} style={tableRowStyle}>
                           <td style={tableCellStyle}>{b.id}</td>
@@ -1159,7 +1217,7 @@ const saveVehicleRates = async () => {
                           <td style={tableCellStyle}><span style={{ background: '#e8f5e9', color: '#28a745', padding: '4px 12px', borderRadius: '20px', fontSize: '0.9rem' }}>Confirmed</span></td>
                         </tr>
                       ))}
-                    </tbody>
+                    </thead>
                   </table>
                 </div>
                 {bookings.length === 0 && <p style={{ textAlign: 'center', color: '#666', padding: '2rem' }}>No bookings to display</p>}
